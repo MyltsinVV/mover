@@ -1,3 +1,8 @@
 {
-
+    "saas": {
+        "publicToken": "cmw14wpxl0523iu0haf6komq4"
+    },
+    "leaderboards": [
+        { "id": "best_score" }
+    ]
 }
