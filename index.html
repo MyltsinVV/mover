@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Халтурка</title>
+    <script src="https://bridge.playgama.com/v2/stable/playgama-bridge.js"></script>
+  </head>
+  <body>
+    <div class="phone">
+      <div class="hud">
+        <div><span data-t="score">ОЧКИ</span><b id="score">0</b></div>
+        <div><span data-t="best">РЕКОРД</span><b id="best">0</b></div>
+        <div><span data-t="rows">РЯДЫ</span><b id="lines">0</b></div>
+        <div><span data-t="lives">ЖИЗНИ</span><b id="lives">♥♥♥</b></div>
+        <button type="button" class="sound" id="btn-sound" aria-pressed="true">♪</button>
+      </div>
+
+      <div class="screen-area">
+        <div class="screen">
+          <canvas id="lcd"></canvas>
+          <div class="overlay" id="overlay"><div class="dialog" id="dialog"></div></div>
+        </div>
+      </div>
+
+      <div class="pad" id="pad">
+        <button type="button" id="btn-left">◀</button>
+        <button type="button" id="btn-jump">▲</button>
+        <button type="button" id="btn-right">▶</button>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
