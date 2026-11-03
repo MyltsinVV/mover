@@ -1,6 +1,6 @@
 import './style.css'
 import {H, JUMP_BUFFER, W} from './config.ts'
-import {getGame, input, onGameOver, resetGame, step} from './game.ts'
+import {continueWithExtraLife, endGame, getGame, input, onGameOver, onOutOfLives, resetGame, step} from './game.ts'
 import {draw} from './render.ts'
 import {platform} from './platform.ts'
 import {sound, soundInit} from './sound.ts'
@@ -23,8 +23,8 @@ const overlay = $('overlay')
 const dialog = $('dialog')
 const soundButton = $<HTMLButtonElement>('btn-sound')
 
-// loading → start → playing ⇄ paused → over → ad → playing …
-type Screen = 'loading' | 'start' | 'playing' | 'paused' | 'over' | 'ad'
+// loading → start → playing ⇄ paused → (continue → ad → playing) → over → ad → playing …
+type Screen = 'loading' | 'start' | 'playing' | 'paused' | 'continue' | 'over' | 'ad'
 let screen: Screen = 'loading'
 let best = 0
 
@@ -126,6 +126,51 @@ const playAgain = async () => {
     await platform.adShow()
     sound.setMutedByGame(false)
     startGame()
+}
+
+// Жизни кончились — предлагаем ещё одну за рекламу (если площадка такую рекламу умеет)
+onOutOfLives(() => {
+    if (!platform.isRewardedSupported()) return false
+    screen = 'continue'
+    input.left = input.right = false
+    platform.stop()
+    showDialog(
+        `<h1>${texts.moreLife}</h1>
+        <p>${texts.moreLifeText}</p>
+        <button type="button" class="go" id="watch">${texts.watchAd}</button>
+        <button type="button" class="go alt" id="decline">${texts.noThanks}</button>`,
+        'watch',
+        () => void watchForLife(),
+    )
+    $('decline').addEventListener('click', () => {
+        if (screen !== 'continue') return
+        hideDialog()
+        endGame()
+    })
+    return true
+})
+
+const watchForLife = async () => {
+    if (screen !== 'continue') return
+    screen = 'ad'
+    showDialog(`<p class="big">${texts.ad}</p>`)
+    sound.setMutedByGame(true)
+    const isRewarded = await platform.rewardedShow()
+    sound.setMutedByGame(false)
+
+    if (!isRewarded) {
+        // Нет досмотренной рекламы — нет жизни
+        hideDialog()
+        endGame()
+        return
+    }
+
+    sound.unlock()
+    continueWithExtraLife()
+    screen = 'playing'
+    hideDialog()
+    renderHud()
+    platform.start()
 }
 
 onGameOver((reason) => {

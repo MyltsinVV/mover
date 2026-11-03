@@ -44,6 +44,7 @@ export type Game = {
     lines: number
     level: number
     lives: number
+    isContinueUsed: boolean // лишнюю жизнь за рекламу дают один раз за игру
     over: boolean
     craneTimer: number
 }
@@ -54,6 +55,12 @@ export const input = {left: false, right: false, jumpBuffer: 0}
 let gameOverHandler: (reason: string) => void = () => {}
 export const onGameOver = (handler: (reason: string) => void) => {
     gameOverHandler = handler
+}
+
+// Жизни кончились: обработчик возвращает true, если предложил игроку продолжить за рекламу
+let outOfLivesHandler: () => boolean = () => false
+export const onOutOfLives = (handler: () => boolean) => {
+    outOfLivesHandler = handler
 }
 
 // ---------- Новая игра ----------
@@ -91,6 +98,7 @@ const newGame = (): Game => {
         lines: 0,
         level: 1,
         lives: LIVES,
+        isContinueUsed: false,
         over: false,
         craneTimer: 0.8,
     }
@@ -438,6 +446,16 @@ const respawn = () => {
     sound.play('respawn')
 }
 
+// Досмотрел рекламу — ещё одна жизнь
+export const continueWithExtraLife = () => {
+    state.isContinueUsed = true
+    state.lives = 1
+    respawn()
+}
+
+// Отказался от продолжения или реклама не показалась
+export const endGame = () => finishGame(texts.crushed)
+
 // Позиция для отрисовки — плавно между клетками и по дуге в прыжке
 export const playerPos = (p: Player) => {
     if (p.mode === 'jump') return {x: p.col, y: p.row + jumpHeight(p)}
@@ -502,6 +520,10 @@ export const step = (dt: number) => {
         p.dead -= dt
         if (p.dead <= 0) {
             if (state.lives <= 0) {
+                if (!state.isContinueUsed && outOfLivesHandler()) {
+                    p.dead = 1 // лежит раздавленный, пока игрок решает
+                    return
+                }
                 finishGame(texts.crushed)
                 return
             }
