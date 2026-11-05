@@ -6,6 +6,9 @@ const AD_OPEN_TIMEOUT = 5000
 // Такой же id нужно завести в консоли Playgama: Leaderboards → id, тип numeric, по убыванию
 const LEADERBOARD_ID = 'best_score'
 const TOP_SIZE = 5
+// Результаты выше этого — накрутка через консоль браузера: честно столько не набрать.
+// Такие записи в таблице не показываем
+const MAX_REAL_SCORE = 1_000_000
 
 export type LeaderEntry = {
     rank: number
@@ -149,12 +152,26 @@ export const platform: PlatformType = {
     getTop: async () => {
         const entries = await bridge.leaderboards.getEntries(LEADERBOARD_ID)
         const myId = bridge.player.id
-        return entries.slice(0, TOP_SIZE).map((entry) => ({
-            rank: entry.rank,
-            name: entry.name || '—',
-            score: entry.score,
-            isMe: myId !== null && entry.id === myId,
-        }))
+        const real = entries
+            .filter((entry) => Number.isFinite(entry.score) && entry.score > 0 && entry.score <= MAX_REAL_SCORE)
+            .sort((a, b) => b.score - a.score)
+
+        // Места считаем сами: у площадки верхние места заняты накрутчиками.
+        // Одинаковый счёт — одинаковое место
+        let rank = 0
+        let previous: number | null = null
+        return real.slice(0, TOP_SIZE).map((entry, index) => {
+            if (entry.score !== previous) {
+                rank = index + 1
+                previous = entry.score
+            }
+            return {
+                rank,
+                name: entry.name || '—',
+                score: entry.score,
+                isMe: myId !== null && entry.id === myId,
+            }
+        })
     },
     showLeaderboardPopup: async () => {
         await bridge.leaderboards.showNativePopup(LEADERBOARD_ID)
