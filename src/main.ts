@@ -2,7 +2,7 @@ import './style.css'
 import {H, JUMP_BUFFER, W} from './config.ts'
 import {continueWithExtraLife, endGame, getGame, input, onGameOver, onOutOfLives, resetGame, step} from './game.ts'
 import {draw} from './render.ts'
-import {type LeaderEntry, platform} from './platform.ts'
+import {platform} from './platform.ts'
 import {sound, soundInit} from './sound.ts'
 import {changeTexts, texts} from './texts.ts'
 
@@ -24,7 +24,7 @@ const dialog = $('dialog')
 const soundButton = $<HTMLButtonElement>('btn-sound')
 
 // loading → start → playing ⇄ paused → (continue → ad → playing) → over → ad → playing …
-type Screen = 'loading' | 'start' | 'records' | 'playing' | 'paused' | 'continue' | 'over' | 'ad'
+type Screen = 'loading' | 'start' | 'playing' | 'paused' | 'continue' | 'over' | 'ad'
 let screen: Screen = 'loading'
 let best = 0
 
@@ -47,47 +47,6 @@ const showDialog = (html: string, buttonId?: string, onClick?: VoidFunction) => 
     }
 }
 
-// Имена игроков приходят с площадки — вставляем их в HTML только экранированными
-const escapeHtml = (text: string) =>
-    text.replace(/[&<>"']/g, (ch) => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'})[ch] ?? ch)
-
-const topList = (entries: LeaderEntry[]) => `<ol class="top">${entries.map((e) => `
-    <li class="${e.isMe ? 'me' : ''}"><span>${e.rank}</span><span>${escapeHtml(e.name)}</span><span>${e.score}</span></li>`).join('')}
-</ol>`
-
-// Таблица лучших под итогами партии — дорисовывается, когда площадка ответит
-const fillTop = async (scoreSent: Promise<void>) => {
-    await scoreSent
-    const entries = await platform.getTop().catch(() => [])
-    const box = document.getElementById('top')
-    if (!box || screen !== 'over' || entries.length === 0) return
-    box.innerHTML = `<p class="top-title">${texts.topTitle}</p>${topList(entries)}`
-    box.hidden = false
-}
-
-// Кнопка «Рекорды» на главном экране: своя таблица или окно площадки
-const hasRecords = () => platform.hasLeaderboardTable() || platform.hasLeaderboardPopup()
-
-const showRecords = async () => {
-    if (screen !== 'start') return
-    if (platform.hasLeaderboardPopup()) {
-        platform.showLeaderboardPopup().catch(console.error)
-        return
-    }
-    screen = 'records'
-    showDialog(
-        `<h1>${texts.topTitle}</h1>
-        <div id="records-list"><p>${texts.loading}</p></div>
-        <button type="button" class="go" id="back">${texts.back}</button>`,
-        'back',
-        showStart,
-    )
-    const entries = await platform.getTop().catch(() => [])
-    const box = document.getElementById('records-list')
-    if (!box || screen !== 'records') return
-    box.innerHTML = entries.length > 0 ? topList(entries) : `<p>${texts.emptyTop}</p>`
-}
-
 const hideDialog = () => {
     overlay.hidden = true
 }
@@ -99,12 +58,10 @@ const showStart = () => {
         <p class="sub">${texts.sub}</p>
         <p>${texts.intro1}</p>
         <p>${texts.intro2}</p>
-        <button type="button" class="go" id="go">${texts.play}</button>
-        ${hasRecords() ? `<button type="button" class="go alt" id="records">${texts.records}</button>` : ''}`,
+        <button type="button" class="go" id="go">${texts.play}</button>`,
         'go',
         startGame,
     )
-    document.getElementById('records')?.addEventListener('click', () => void showRecords())
 }
 
 // Подписи и заголовок вкладки — на языке игрока
@@ -226,28 +183,17 @@ onGameOver((reason) => {
         platform.save({best}).catch(console.error)
     }
     renderHud()
-    // Рекорд — в таблицу лидеров (если её нет или игрок не вошёл, просто молча пропускаем)
-    const scoreSent = best > 0 ? platform.submitScore(best).catch(console.error) : Promise.resolve()
 
     // Небольшая пауза, чтобы было видно, чем кончилось
     setTimeout(() => {
-        const popupButton = platform.hasLeaderboardPopup()
-            ? `<button type="button" class="go alt" id="leaders">${texts.showTop}</button>`
-            : ''
         showDialog(
             `<h1>${reason.toUpperCase()}</h1>
             <p class="big">${texts.points(game.score)}</p>
             <p>${isRecord ? texts.record : texts.bestIs(best)} · ${texts.rowsIs(game.lines)}</p>
-            <div id="top" hidden></div>
-            <button type="button" class="go" id="again">${texts.again}</button>
-            ${popupButton}`,
+            <button type="button" class="go" id="again">${texts.again}</button>`,
             'again',
             () => void playAgain(),
         )
-        document.getElementById('leaders')?.addEventListener('click', () => {
-            platform.showLeaderboardPopup().catch(console.error)
-        })
-        if (platform.hasLeaderboardTable()) void fillTop(scoreSent)
     }, 700)
 })
 

@@ -3,19 +3,7 @@ import type {INTERSTITIAL_STATE, REWARDED_STATE} from '@playgama/bridge/constant
 
 const AD_OPEN_TIMEOUT = 5000
 
-// Такой же id нужно завести в консоли Playgama: Leaderboards → id, тип numeric, по убыванию
-const LEADERBOARD_ID = 'best_score'
-const TOP_SIZE = 5
-// Результаты выше этого — накрутка через консоль браузера: честно столько не набрать.
-// Такие записи в таблице не показываем
-const MAX_REAL_SCORE = 1_000_000
 
-export type LeaderEntry = {
-    rank: number
-    name: string
-    score: number
-    isMe: boolean
-}
 
 export type SaveData = {
     best: number
@@ -34,11 +22,6 @@ export type PlatformType = {
     onSound: (callback: (isEnabled: boolean) => void) => void
     adShow: () => Promise<void>
     isRewardedSupported: () => boolean
-    hasLeaderboardTable: () => boolean
-    hasLeaderboardPopup: () => boolean
-    submitScore: (score: number) => Promise<void>
-    getTop: () => Promise<LeaderEntry[]>
-    showLeaderboardPopup: () => Promise<void>
     rewardedShow: () => Promise<boolean>
     save: (data: SaveData) => Promise<void>
     load: () => Promise<SaveData | null>
@@ -140,41 +123,6 @@ export const platform: PlatformType = {
 
             bridge.advertisement.showRewarded()
         })
-    },
-    // in_game — таблицу рисует сама игра; native_popup — площадка показывает своё окно по кнопке;
-    // native — площадка показывает таблицу сама; not_available — таблицы нет
-    hasLeaderboardTable: () => bridge.leaderboards.type === 'in_game',
-    hasLeaderboardPopup: () => bridge.leaderboards.type === 'native_popup',
-    submitScore: async (score: number) => {
-        if (bridge.leaderboards.type === 'not_available') return
-        await bridge.leaderboards.setScore(LEADERBOARD_ID, score)
-    },
-    getTop: async () => {
-        const entries = await bridge.leaderboards.getEntries(LEADERBOARD_ID)
-        const myId = bridge.player.id
-        const real = entries
-            .filter((entry) => Number.isFinite(entry.score) && entry.score > 0 && entry.score <= MAX_REAL_SCORE)
-            .sort((a, b) => b.score - a.score)
-
-        // Места считаем сами: у площадки верхние места заняты накрутчиками.
-        // Одинаковый счёт — одинаковое место
-        let rank = 0
-        let previous: number | null = null
-        return real.slice(0, TOP_SIZE).map((entry, index) => {
-            if (entry.score !== previous) {
-                rank = index + 1
-                previous = entry.score
-            }
-            return {
-                rank,
-                name: entry.name || '—',
-                score: entry.score,
-                isMe: myId !== null && entry.id === myId,
-            }
-        })
-    },
-    showLeaderboardPopup: async () => {
-        await bridge.leaderboards.showNativePopup(LEADERBOARD_ID)
     },
     save: (data: SaveData) => {
         return bridge.storage.set('data', data)

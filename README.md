@@ -18,7 +18,7 @@ npm run zip      # сборка + mover.zip для загрузки на Playgam
 - `src/render.ts` — отрисовка на canvas
 - `src/sprites.ts` — пиксельные спрайты строками
 - `src/sound.ts` — звуки, синтезируются через Web Audio
-- `src/platform.ts` — Playgama Bridge: язык, сигналы геймплея, реклама, сохранение рекорда
+- `src/platform.ts` — Playgama Bridge: язык, сигналы геймплея, реклама, сохранение личного рекорда
 - `src/texts.ts` — тексты на русском и английском
 - `src/config.ts` — размеры, скорости, палитра
 
