@@ -1,6 +1,6 @@
 import {
     BOX_FALL, BREAK_PART, CELL, CLEAR_TIME, COLS, FALL_T, HELMET_HITS, JUMP_H, JUMP_T,
-    LIVES, MOVE_T, ROWS, STEP_PART, TOP, W,
+    LIVES, MOVE_T, ROWS, STEP_PART, TOP, W, WARMUP, WARMUP_EXTRA_DELAY, WARMUP_ONE_CRANE,
 } from './config.ts'
 import {BODY, HEAD, headWithHelmet, LEGS, MAN_FLAT, randomLook} from './sprites.ts'
 import {sound} from './sound.ts'
@@ -47,6 +47,7 @@ export type Game = {
     isContinueUsed: boolean // лишнюю жизнь за рекламу дают один раз за игру
     over: boolean
     craneTimer: number
+    time: number // сколько секунд идёт смена — для мягкого старта
 }
 
 // Прыжок запоминается на мгновение, чтобы нажатие во время шага не потерялось
@@ -76,12 +77,12 @@ const shuffle = <T>(list: T[]) => {
 
 const newGame = (): Game => {
     const grid = Array.from({length: ROWS + 2}, () => Array<Box | null>(COLS).fill(null))
-    // На складе уже лежит немного ящиков: неполный нижний ряд и пара сверху
+    // На складе уже лежит немного ящиков: неполный нижний ряд и один сверху
     const startCol = 4
     const free = shuffle([...Array(COLS).keys()].filter((c) => c !== startCol))
-    const bottom = free.slice(0, 4 + Math.floor(Math.random() * 3))
+    const bottom = free.slice(0, 3 + Math.floor(Math.random() * 3))
     for (const c of bottom) grid[0][c] = newBox()
-    const second = shuffle(bottom.slice()).slice(0, 1 + Math.floor(Math.random() * 2))
+    const second = shuffle(bottom.slice()).slice(0, 1)
     for (const c of second) grid[1][c] = newBox()
 
     return {
@@ -100,7 +101,8 @@ const newGame = (): Game => {
         lives: LIVES,
         isContinueUsed: false,
         over: false,
-        craneTimer: 0.8,
+        craneTimer: 1.5,
+        time: 0,
     }
 }
 
@@ -157,11 +159,14 @@ const spawnCrane = () => {
 }
 
 const updateCranes = (dt: number) => {
-    const maxCranes = state.level >= 5 ? 3 : 2
+    // Мягкий старт: сначала один кран и пореже, к концу разминки — обычный темп
+    const warm = Math.min(1, state.time / WARMUP)
+    let maxCranes = state.level >= 5 ? 3 : 2
+    if (state.time < WARMUP_ONE_CRANE) maxCranes = 1
     state.craneTimer -= dt
     if (state.craneTimer <= 0 && state.cranes.length < maxCranes) {
         spawnCrane()
-        state.craneTimer = Math.max(0.5, 1.7 - state.level * 0.12)
+        state.craneTimer = Math.max(0.5, 1.7 - state.level * 0.12) + (1 - warm) * WARMUP_EXTRA_DELAY
     }
     // Кран едет через весь склад, не останавливаясь, и отпускает ящик на ходу над нужной колонкой
     for (const crane of state.cranes) {
@@ -428,17 +433,38 @@ const crush = () => {
     sound.play('crush')
 }
 
-// Воскресает над самой низкой колонкой, с новой каской
+// Сколько колонок обойдёт грузчик, начав с колонки start: вверх — на один ящик, вниз — с любой высоты
+const reachableFrom = (start: number, heights: number[]) => {
+    const seen = new Set([start])
+    const queue = [start]
+    while (queue.length > 0) {
+        const c = queue.shift()!
+        for (const n of [c - 1, c + 1]) {
+            if (n < 0 || n >= COLS || seen.has(n)) continue
+            if (heights[n] <= heights[c] + 1) {
+                seen.add(n)
+                queue.push(n)
+            }
+        }
+    }
+    return seen.size
+}
+
+// Воскресает там, откуда можно уйти дальше всего (не в колодце между высокими стопками), с новой каской.
+// Из равных — пониже и поближе к середине склада
 const respawn = () => {
+    const heights = Array.from({length: COLS}, (_, c) => columnHeight(c))
     let bestCol = 0
-    let bestHeight = Infinity
+    let bestScore = -Infinity
     for (let c = 0; c < COLS; c++) {
-        const h = columnHeight(c)
-        if (h < bestHeight) {
-            bestHeight = h
+        if (heights[c] + 2 > ROWS) continue // под потолком не встать
+        const score = reachableFrom(c, heights) * 1000 - heights[c] * 10 - Math.abs(c - (COLS - 1) / 2)
+        if (score > bestScore) {
+            bestScore = score
             bestCol = c
         }
     }
+    const bestHeight = heights[bestCol]
     Object.assign(state.player, {
         col: bestCol, row: bestHeight, fromCol: bestCol, fromY: bestHeight, mode: 'idle',
         t: 0, jt: 0, idleT: 0, dead: 0, invul: 2, helmet: HELMET_HITS,
@@ -500,6 +526,7 @@ const popText = (x: number, y: number, text: string) => {
 // ---------- Шаг симуляции ----------
 export const step = (dt: number) => {
     if (state.over) return
+    state.time += dt
 
     if (state.clearing) {
         state.clearing.t -= dt

@@ -22,6 +22,7 @@ ctx.imageSmoothingEnabled = false
 const overlay = $('overlay')
 const dialog = $('dialog')
 const soundButton = $<HTMLButtonElement>('btn-sound')
+const pauseButton = $<HTMLButtonElement>('btn-pause')
 
 // loading → start → playing ⇄ paused → (continue → ad → playing) → over → ad → playing …
 type Screen = 'loading' | 'start' | 'playing' | 'paused' | 'continue' | 'over' | 'ad'
@@ -79,6 +80,7 @@ const applyTexts = () => {
     $('btn-right').setAttribute('aria-label', texts.right)
     $('btn-jump').setAttribute('aria-label', texts.jump)
     soundButton.setAttribute('aria-label', texts.sound)
+    pauseButton.setAttribute('aria-label', texts.pauseButton)
 }
 
 const updateSoundButton = () => {
@@ -103,10 +105,32 @@ const pause = () => {
     platform.stop()
     showDialog(
         `<h1>${texts.paused}</h1>
-        <button type="button" class="go" id="resume">${texts.resume}</button>`,
+        <button type="button" class="go" id="resume">${texts.resume}</button>
+        <button type="button" class="go alt" id="restart">${texts.restart}</button>
+        <button type="button" class="go alt" id="to-menu">${texts.toMenu}</button>`,
         'resume',
         resume,
     )
+    $('restart').addEventListener('click', () => {
+        if (screen !== 'paused') return
+        keepRecord()
+        startGame()
+    })
+    $('to-menu').addEventListener('click', () => {
+        if (screen !== 'paused') return
+        keepRecord()
+        resetGame()
+        renderHud()
+        showStart()
+    })
+}
+
+// Бросил смену на середине — рекорд всё равно засчитываем
+const keepRecord = () => {
+    const score = getGame().score
+    if (score <= best) return
+    best = score
+    platform.save({best}).catch(console.error)
 }
 
 const resume = () => {
@@ -231,6 +255,12 @@ const bindHold = (id: string, key: Key) => {
 bindHold('btn-left', 'left')
 bindHold('btn-right', 'right')
 bindHold('btn-jump', 'jump')
+
+pauseButton.addEventListener('click', () => {
+    sound.unlock()
+    if (screen === 'playing') pause()
+    else if (screen === 'paused') resume()
+})
 
 soundButton.addEventListener('click', () => {
     sound.toggle()

@@ -43,7 +43,7 @@ body {
 
 .hud {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) auto auto;
   gap: 6px;
   font-family: var(--font-pixel);
   font-size: 9px;
