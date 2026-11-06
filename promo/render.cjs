@@ -28,6 +28,15 @@ const LAYOUTS = {
     title: { x: 256, y: 112, size: 54, sub: 0, align: 'center' },
     noBonk: true,
   },
+  // Обложка для itch.io: рекомендуют 630×500
+  itch: {
+    file: 'cover_itch', W: 630, H: 500, cell: 63,
+    heights: [2, 1, 2, 0, 0, 1, 2, 1, 2, 1],
+    worker: { col: 4, lift: 0.45 }, look: [0, 3, 1, 5, 2, 4],
+    falling: [{ col: 1, y: 3.4, look: 2 }],
+    cranes: [{ x: 1.2, carrying: false }, { x: 7.8, carrying: false }],
+    title: { x: 315, y: 118, size: 60, sub: 20, align: 'center' },
+  },
   square: {
     W: 800, H: 800, cell: 100,
     heights: [2, 1, 0, 0, 1, 2, 1, 2],
