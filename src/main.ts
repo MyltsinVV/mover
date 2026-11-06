@@ -280,7 +280,8 @@ window.addEventListener('keydown', (event) => {
         updateSoundButton()
         return
     }
-    if (event.code === 'KeyP' || event.code === 'Escape') {
+    // Esc не трогаем: по требованиям Playgama им браузер выходит из полноэкранного режима
+    if (event.code === 'KeyP') {
         if (screen === 'playing') pause()
         else if (screen === 'paused') resume()
         return
