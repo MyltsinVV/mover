@@ -9,6 +9,25 @@ const SPR = JSON.parse(fs.readFileSync(path.join(dir, 'sprites.json'), 'utf8'));
 const FONT = fs.readFileSync(path.join(dir, '../public/fonts/PressStart2P-Regular.ttf')).toString('base64');
 
 const LAYOUTS = {
+  // Иконки для каталогов GamePush: 1024×1024 и 4:3 512×384, без скруглений
+  icon: {
+    file: 'icon', W: 1024, H: 1024, cell: 128,
+    heights: [2, 1, 0, 0, 1, 2, 1, 2],
+    worker: { col: 3, lift: 0.45 }, look: [0, 3, 1, 5, 2, 4],
+    falling: [{ col: 1, y: 2.9, look: 2 }],
+    cranes: [{ x: 1.1, carrying: false }, { x: 6.4, carrying: false }],
+    title: { x: 512, y: 275, size: 108, sub: 36, align: 'center' },
+  },
+  // Маленькая — без подзаголовка и «BONK!»: на мелкой плитке их всё равно не прочесть
+  icon43: {
+    file: 'icon', W: 512, H: 384, cell: 64,
+    heights: [1, 1, 0, 1, 2, 0, 1, 2],
+    worker: { col: 5, lift: 0.45 }, look: [0, 3, 1, 5, 2, 4],
+    falling: [{ col: 1, y: 2.7, look: 2 }],
+    cranes: [],
+    title: { x: 256, y: 112, size: 54, sub: 0, align: 'center' },
+    noBonk: true,
+  },
   square: {
     W: 800, H: 800, cell: 100,
     heights: [2, 1, 0, 0, 1, 2, 1, 2],
@@ -154,6 +173,7 @@ document.fonts.load('40px PS2P').then(() => {
   bits.forEach(([dx, dy]) => ctx.fillRect(Math.round(cx + dx * cell), Math.round(cy + dy * cell * 0.7), px * 1.2, px * 1.2));
 
   // «BONK!» над местом удара
+  if (!L.noBonk) {
   ctx.font = Math.round(px * 3.2) + 'px PS2P';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'alphabetic';
@@ -162,6 +182,7 @@ document.fonts.load('40px PS2P').then(() => {
   ctx.fillText(W.bonk, bx + px * 0.6, by + px * 0.6);
   ctx.fillStyle = C.dark;
   ctx.fillText(W.bonk, bx, by);
+  }
 
   // Название: тёмные буквы со светлой тенью, как на подсвеченном экране
   const t = L.title;
@@ -181,7 +202,7 @@ document.fonts.load('40px PS2P').then(() => {
   ctx.font = sub + 'px PS2P';
   ctx.textAlign = t.align;
   ctx.fillStyle = C.dark;
-  ctx.fillText(W.sub, t.x + (t.align === 'left' ? 6 : 0), t.y + t.sub * 2.4);
+  if (sub > 0) ctx.fillText(W.sub, t.x + (t.align === 'left' ? 6 : 0), t.y + t.sub * 2.4);
 
   document.title = 'done';
 });
@@ -196,7 +217,7 @@ document.fonts.load('40px PS2P').then(() => {
       await p.setViewportSize({ width: layout.W, height: layout.H });
       await p.setContent(page(layout, words));
       await p.waitForFunction(() => document.title === 'done');
-      const out = path.join(dir, `cover_${name}_${layout.W}x${layout.H}_${lang}.png`);
+      const out = path.join(dir, `${layout.file ?? 'cover_' + name}_${layout.W}x${layout.H}_${lang}.png`);
       await (await p.$('#c')).screenshot({ path: out });
       console.log(out);
     }
