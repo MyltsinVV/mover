@@ -9,7 +9,12 @@ npm install
 npm run dev      # разработка
 npm run build    # сборка в dist/
 npm run zip      # сборка + mover.zip для загрузки на Playgama
+npm run zip:gamepush   # сборка под GamePush + mover-gamepush.zip
 ```
+
+Две сборки из одного кода. Вся связь с площадкой — в одном файле с общим интерфейсом из `src/platform-types.ts`:
+Playgama — `src/platform.ts`, GamePush — `src/platform-gamepush.ts`. Какой взять, решает `vite.config.ts` по режиму сборки.
+Для GamePush в кабинете у проекта должно быть поле игрока `best` (число) — в нём хранится рекорд.
 
 ## Устройство
 
@@ -19,6 +24,9 @@ npm run zip      # сборка + mover.zip для загрузки на Playgam
 - `src/sprites.ts` — пиксельные спрайты строками
 - `src/sound.ts` — звуки, синтезируются через Web Audio
 - `src/platform.ts` — Playgama Bridge: язык, сигналы геймплея, реклама, сохранение личного рекорда
+- `src/platform-gamepush.ts` — то же через GamePush SDK (проект 32617)
+- `src/platform-types.ts` — общий интерфейс площадки
+- `promo/` — обложки на английском и русском (квадрат 800, вертикальная 1080×1920, горизонтальная 1920×1080). Перерисовать: `node promo/render.cjs` (нужен Playwright с Chromium)
 - `src/texts.ts` — тексты на русском и английском
 - `src/config.ts` — размеры, скорости, палитра; `WARMUP*` — мягкий старт (первые секунды кранов меньше и реже)
 

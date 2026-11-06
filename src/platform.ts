@@ -1,32 +1,10 @@
+// Площадка Playgama: всё общение с ней — через Playgama Bridge.
+// Сборка под GamePush берёт вместо этого файла platform-gamepush.ts (см. vite.config.ts).
 import type {} from '@playgama/bridge/global'
 import type {INTERSTITIAL_STATE, REWARDED_STATE} from '@playgama/bridge/constants'
+import {isSaveData, type PlatformType, type SaveData} from './platform-types.ts'
 
 const AD_OPEN_TIMEOUT = 5000
-
-
-
-export type SaveData = {
-    best: number
-}
-
-const isSaveData = (value: unknown): value is SaveData => {
-    return typeof value === 'object' && value !== null && 'best' in value && typeof value.best === 'number'
-}
-
-export type PlatformType = {
-    init: () => Promise<void>
-    ready: () => Promise<void>
-    start: VoidFunction
-    stop: VoidFunction
-    onPause: (callback: (isPaused: boolean) => void) => void
-    onSound: (callback: (isEnabled: boolean) => void) => void
-    adShow: () => Promise<void>
-    isRewardedSupported: () => boolean
-    rewardedShow: () => Promise<boolean>
-    save: (data: SaveData) => Promise<void>
-    load: () => Promise<SaveData | null>
-    lang: 'ru' | 'en'
-}
 
 // gameplay_started / gameplay_stopped отправляем только при смене состояния
 let isGameplay = false

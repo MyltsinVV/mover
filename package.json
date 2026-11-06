@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "zip": "npm run build && cd dist && rm -f ../mover.zip && zip -r ../mover.zip ."
+    "zip": "npm run build && cd dist && rm -f ../mover.zip && zip -r ../mover.zip .",
+    "build:gamepush": "tsc && vite build --mode gamepush",
+    "zip:gamepush": "npm run build:gamepush && cd dist-gamepush && rm -f ../mover-gamepush.zip playgama-bridge-config.json && zip -r ../mover-gamepush.zip ."
   },
   "devDependencies": {
     "@playgama/bridge": "^2.3.1",
