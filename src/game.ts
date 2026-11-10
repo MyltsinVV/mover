@@ -1,17 +1,19 @@
 import {
-    BOX_FALL, BREAK_PART, CELL, CLEAR_TIME, COLS, FALL_T, HELMET_HITS, JUMP_H, JUMP_T,
+    BOX_FALL, BREAK_PART, CELL, CLEAR_TIME, COLS, CRUSH_T, FALL_T, HELMET_HITS, JUMP_H, JUMP_T,
     LIVES, MOVE_T, ROWS, STEP_PART, TOP, W, WARMUP, WARMUP_EXTRA_DELAY, WARMUP_ONE_CRANE,
 } from './config.ts'
-import {BODY, HEAD, headWithHelmet, LEGS, MAN_FLAT, randomLook} from './sprites.ts'
+import {randomLook} from './crates.ts'
 import {sound} from './sound.ts'
 import {texts} from './texts.ts'
 
 // ---------- Типы ----------
-export type Box = { look: number, slide: number, slideFrom: number }
+// landed — когда ящик лёг на место (время смены): от удара он на мгновение приседает
+export type Box = { look: number, slide: number, slideFrom: number, landed: number }
 export type FallingBox = { col: number, y: number, look: number, dropped?: boolean }
 export type Crane = { x: number, dir: 1 | -1, target: number, look: number, carrying: boolean, speed: number }
 export type Fx =
-    | { kind: 'bit', x: number, y: number, vx: number, vy: number, t: number }
+    | { kind: 'bit', x: number, y: number, vx: number, vy: number, t: number, look: number }
+    | { kind: 'dust', x: number, y: number, vx: number, vy: number, t: number }
     | { kind: 'text', x: number, y: number, text: string, t: number }
     | { kind: 'flash', t: number }
 
@@ -31,6 +33,9 @@ export type Player = {
     invul: number // неуязвимость после воскрешения
     walkFrame: number
     helmet: number // сколько ударов головой ещё выдержит каска
+    pushing: boolean // этот шаг — с ящиком впереди
+    hop: boolean // этот шаг начат из прыжка: запрыгивает на ящик
+    landT: number // сколько прошло после приземления — для приседа
 }
 
 export type Game = {
@@ -65,7 +70,7 @@ export const onOutOfLives = (handler: () => boolean) => {
 }
 
 // ---------- Новая игра ----------
-const newBox = (): Box => ({look: randomLook(), slide: 0, slideFrom: 0})
+const newBox = (): Box => ({look: randomLook(), slide: 0, slideFrom: 0, landed: -9})
 
 const shuffle = <T>(list: T[]) => {
     for (let i = list.length - 1; i > 0; i--) {
@@ -93,7 +98,7 @@ const newGame = (): Game => {
         clearing: null,
         player: {
             col: startCol, row: 0, fromCol: startCol, fromY: 0, mode: 'idle', t: 0, jt: 0, idleT: 0,
-            facing: 1, dead: 0, invul: 1.5, walkFrame: 0, helmet: HELMET_HITS,
+            facing: 1, dead: 0, invul: 1.5, walkFrame: 0, helmet: HELMET_HITS, pushing: false, hop: false, landT: 9,
         },
         score: 0,
         lines: 0,
@@ -195,7 +200,8 @@ const settle = (b: FallingBox) => {
         finishGame(texts.full)
         return
     }
-    state.grid[r][b.col] = {look: b.look, slide: 0, slideFrom: 0}
+    state.grid[r][b.col] = {look: b.look, slide: 0, slideFrom: 0, landed: state.time}
+    dust((b.col + 0.5) * CELL, yToScreen(r), 5, 60)
     sound.play('land')
     state.score += 1
     checkLines()
@@ -287,6 +293,7 @@ const tryPush = (c: number, r: number, dir: number) => {
         if (occupied(to, r)) return false
         state.grid[r][to] = {...box, slide: MOVE_T, slideFrom: -dir}
         state.grid[r][c] = null
+        dust((c + 0.5 - dir * 0.4) * CELL, yToScreen(r), 2, 30)
         sound.play('push')
         return true
     }
@@ -319,7 +326,10 @@ const canStep = (to: number, row: number, dir: number) => {
 
 const startMove = (p: Player, dir: number, row: number) => {
     const to = p.col + dir
+    const isPush = to >= 0 && to < COLS && occupied(to, row)
     if (!canStep(to, row, dir)) return false
+    p.pushing = isPush
+    p.hop = p.mode === 'jump'
     p.fromCol = p.col
     p.fromY = p.row + jumpHeight(p)
     p.col = to
@@ -331,7 +341,15 @@ const startMove = (p: Player, dir: number, row: number) => {
     return true
 }
 
+// Приземлился: приседает и поднимает пыль
+const land = (p: Player) => {
+    p.landT = 0
+    dust((p.col + 0.5) * CELL, yToScreen(p.row), 3, 40)
+}
+
 const startFall = (p: Player) => {
+    p.pushing = false
+    p.hop = false
     p.fromCol = p.col
     p.fromY = p.row
     p.row -= 1
@@ -343,6 +361,7 @@ const updatePlayer = (dt: number) => {
     const p = state.player
     p.invul = Math.max(0, p.invul - dt)
     p.t += dt
+    p.landT += dt
     input.jumpBuffer = Math.max(0, input.jumpBuffer - dt)
 
     const dir = (input.right ? 1 : 0) - (input.left ? 1 : 0)
@@ -372,7 +391,10 @@ const updatePlayer = (dt: number) => {
                 p.fromY = p.row
                 if (!supported(p)) startFall(p)
                 else {
+                    if (p.hop) land(p)
                     p.mode = 'idle'
+                    p.pushing = false
+                    p.hop = false
                     if (dir !== 0 && input.jumpBuffer <= 0) startMove(p, dir, p.row)
                 }
             }
@@ -382,6 +404,7 @@ const updatePlayer = (dt: number) => {
             // В верхней части прыжка можно шагнуть на ящик или толкнуть верхний ящик стопки
             if (dir !== 0 && highEnough(p) && startMove(p, dir, p.row + 1)) break
             if (p.jt >= JUMP_T) {
+                land(p)
                 p.mode = 'idle'
                 p.idleT = 0
                 p.fromCol = p.col
@@ -392,8 +415,10 @@ const updatePlayer = (dt: number) => {
             if (p.t >= FALL_T) {
                 p.fromCol = p.col
                 p.fromY = p.row
-                if (supported(p)) p.mode = 'idle'
-                else startFall(p)
+                if (supported(p)) {
+                    land(p)
+                    p.mode = 'idle'
+                } else startFall(p)
             }
             break
     }
@@ -410,13 +435,13 @@ const checkHits = () => {
         if (p.invul > 0) {
             // После воскрешения ящики просто разлетаются — без очков и без вреда каске
             state.falling = state.falling.filter((x) => x !== b)
-            debris(b.col, b.y, 12)
+            debris(b.col, b.y, 12, b.look)
             sound.play('bonk')
         } else if (rising(p) && p.helmet > 0) {
             state.falling = state.falling.filter((x) => x !== b)
             p.helmet--
             state.score += 10
-            debris(b.col, b.y, 12)
+            debris(b.col, b.y, 12, b.look)
             popText((b.col + 0.5) * CELL, yToScreen(b.y + 1), p.helmet > 0 ? texts.bonk : texts.helmetGone)
             sound.play(p.helmet > 0 ? 'bonk' : 'helmetGone')
         } else {
@@ -427,7 +452,7 @@ const checkHits = () => {
 }
 
 const crush = () => {
-    state.player.dead = 1.4
+    state.player.dead = CRUSH_T
     state.lives--
     state.fx.push({kind: 'flash', t: 0.25})
     sound.play('crush')
@@ -467,7 +492,7 @@ const respawn = () => {
     const bestHeight = heights[bestCol]
     Object.assign(state.player, {
         col: bestCol, row: bestHeight, fromCol: bestCol, fromY: bestHeight, mode: 'idle',
-        t: 0, jt: 0, idleT: 0, dead: 0, invul: 2, helmet: HELMET_HITS,
+        t: 0, jt: 0, idleT: 0, dead: 0, invul: 2, helmet: HELMET_HITS, pushing: false, hop: false, landT: 9,
     })
     sound.play('respawn')
 }
@@ -491,30 +516,34 @@ export const playerPos = (p: Player) => {
     return {x: p.fromCol + (p.col - p.fromCol) * k, y: p.fromY + (p.row - p.fromY) * k}
 }
 
-// Кадр грузчика: стоя он вертит головой, на ходу смотрит, куда идёт
-export const manFrame = (p: Player) => {
-    if (p.dead > 0) return MAN_FLAT
-    let head = HEAD.center
-    if (p.mode === 'idle') head = [HEAD.center, HEAD.left, HEAD.center, HEAD.right][Math.floor(p.idleT / 0.7) % 4]
-    else if (p.mode === 'move') head = p.facing < 0 ? HEAD.left : HEAD.right
-    let legs = LEGS.stand
-    if (p.mode === 'jump' || p.mode === 'fall') legs = LEGS.jump
-    else if (p.mode === 'move' && p.walkFrame) legs = LEGS.walk
-    return [...headWithHelmet(head, p.helmet), ...BODY, ...legs]
-}
-
 // ---------- Эффекты ----------
 export const yToScreen = (cellY: number) => TOP + (ROWS - cellY) * CELL
 
-const debris = (c: number, r: number, count: number) => {
+const debris = (c: number, r: number, count: number, look: number) => {
     for (let i = 0; i < count; i++) {
         state.fx.push({
             kind: 'bit',
+            look,
             x: (c + 0.5) * CELL,
             y: yToScreen(r + 0.5),
             vx: (Math.random() - 0.5) * 220,
             vy: -80 - Math.random() * 160,
             t: 0.5 + Math.random() * 0.3,
+        })
+    }
+}
+
+// Облачка пыли у пола: разлетаются в стороны и тают
+const dust = (x: number, y: number, count: number, speed: number) => {
+    for (let i = 0; i < count * 2; i++) {
+        const side = i % 2 ? 1 : -1
+        state.fx.push({
+            kind: 'dust',
+            x: x + side * 8,
+            y: y - 2,
+            vx: side * speed * (0.4 + Math.random() * 0.6),
+            vy: -6 - Math.random() * 12,
+            t: 0.25 + Math.random() * 0.2,
         })
     }
 }
@@ -576,6 +605,11 @@ export const step = (dt: number) => {
             f.x += f.vx * dt
             f.y += f.vy * dt
             f.vy += 600 * dt
+        }
+        if (f.kind === 'dust') {
+            f.x += f.vx * dt
+            f.y += f.vy * dt
+            f.vx *= 1 - 4 * dt
         }
         if (f.kind === 'text') f.y -= 30 * dt
     }

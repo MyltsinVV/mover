@@ -1,15 +1,16 @@
-/* Раскладка: одна узкая колонка как экран старого телефона — табло, склад, три кнопки.
-   Одна гамма: ЖК-экран с оранжевой подсветкой */
+/* Раскладка: одна узкая колонка — табло, склад, три кнопки. Цвета — как в макете «Дневная смена» */
 :root {
-  --bg: #2b3226;          /* корпус телефона */
-  --case: #3a4334;
-  --lcd: #f0a65c;         /* экран с оранжевой подсветкой, как у Siemens */
-  --lcd-dark: #3b1d0b;    /* пиксели */
-  --ink: #e4ead8;
-  --muted: #9aa78b;
-  --accent: #e3b341;
-  --font-pixel: 'Press Start 2P', ui-monospace, monospace;
-  --font-body: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --bg: #2e3a48;          /* фон вокруг склада */
+  --chip: #3c4a5b;        /* плашки табло и кнопки */
+  --chip-on: #4a5a6e;
+  --ink: #ffffff;
+  --muted: #b9c6d6;
+  --accent: #ffc531;      /* жёлтый, как кран */
+  --on-accent: #2b2433;
+  --heart: #ff5a5f;
+  --heart-off: #4a5869;
+  --paper: #f6e7cf;       /* карточка диалога — цвет стены склада */
+  --font: Rubik, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   color-scheme: dark;
 }
 
@@ -20,7 +21,7 @@ html, body { height: 100%; margin: 0; }
 body {
   background: var(--bg);
   color: var(--ink);
-  font-family: var(--font-body);
+  font-family: var(--font);
   overflow: hidden;
   user-select: none;
   -webkit-user-select: none;
@@ -32,10 +33,10 @@ body {
   max-width: 440px;
   height: 100%;
   margin: 0 auto;
-  padding-left: max(16px, env(safe-area-inset-left, 0px));
-  padding-right: max(16px, env(safe-area-inset-right, 0px));
-  padding-top: max(12px, env(safe-area-inset-top, 0px));
-  padding-bottom: max(16px, env(safe-area-inset-bottom, 0px));
+  padding-left: max(12px, env(safe-area-inset-left, 0px));
+  padding-right: max(12px, env(safe-area-inset-right, 0px));
+  padding-top: max(10px, env(safe-area-inset-top, 0px));
+  padding-bottom: max(12px, env(safe-area-inset-bottom, 0px));
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -45,28 +46,53 @@ body {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr)) auto auto;
   gap: 6px;
-  font-family: var(--font-pixel);
-  font-size: 9px;
-  line-height: 1.6;
+  align-items: stretch;
 }
-.hud div { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.hud span { color: var(--muted); font-size: 8px; letter-spacing: .05em; }
-.hud b { font-weight: 400; font-size: 12px; color: var(--ink); font-variant-numeric: tabular-nums; }
+.hud div {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  padding: 5px 8px;
+  background: var(--chip);
+  border-radius: 10px;
+}
+.hud span { color: var(--muted); font-size: 9px; font-weight: 500; letter-spacing: .08em; white-space: nowrap; }
+.hud b { font-weight: 800; font-size: 17px; line-height: 1.15; color: var(--ink); font-variant-numeric: tabular-nums; }
+.hud #best { color: var(--accent); }
+.hud #lives { display: flex; align-items: center; gap: 2px; height: 20px; }
+/* Сердечки: красные — жизни в запасе, серые — потраченные */
+.heart {
+  width: 13px;
+  height: 12px;
+  flex: none;
+  background: var(--heart-off);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 24'%3E%3Cpath d='M13 23 C4 16 0 11.5 0 7 C0 3 3 0 6.8 0 C9.4 0 11.8 1.4 13 3.6 C14.2 1.4 16.6 0 19.2 0 C23 0 26 3 26 7 C26 11.5 22 16 13 23 Z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 24'%3E%3Cpath d='M13 23 C4 16 0 11.5 0 7 C0 3 3 0 6.8 0 C9.4 0 11.8 1.4 13 3.6 C14.2 1.4 16.6 0 19.2 0 C23 0 26 3 26 7 C26 11.5 22 16 13 23 Z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+.heart.on { background: var(--heart); }
+
 .hud .sound {
   align-self: center;
-  width: 36px;
-  height: 36px;
-  font-family: var(--font-pixel);
-  font-size: 14px;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
   color: var(--ink);
-  background: var(--case);
+  background: var(--chip);
   border: 0;
-  border-radius: 8px;
+  border-radius: 50%;
   cursor: pointer;
 }
-.hud .sound[aria-pressed="false"] { color: var(--muted); text-decoration: line-through; }
+.hud .sound svg { display: block; }
+/* Звук выключен: волны гаснут, появляется крестик */
+.hud .sound .off { display: none; }
+.hud .sound[aria-pressed="false"] { color: var(--muted); }
+.hud .sound[aria-pressed="false"] .on { display: none; }
+.hud .sound[aria-pressed="false"] .off { display: inline; }
 
-/* Экран занимает всё место между табло и кнопками, сохраняя пропорции склада */
+/* Склад занимает всё место между табло и кнопками, сохраняя свои пропорции */
 .screen-area {
   flex: 1 1 auto;
   min-height: 0;
@@ -76,65 +102,76 @@ body {
 }
 .screen {
   position: relative;
-  width: min(100cqw, 100cqh * 308 / 452);
-  aspect-ratio: 308 / 452;
-  background: var(--case);
+  width: min(100cqw, 100cqh * 288 / 440);
+  aspect-ratio: 288 / 440;
   border-radius: 14px;
-  padding: 10px;
-  box-shadow: inset 0 2px 0 rgba(255, 255, 255, .06), 0 6px 0 rgba(0, 0, 0, .25);
+  overflow: hidden;
+  box-shadow: 0 6px 0 rgba(0, 0, 0, .22);
 }
 
 canvas {
   display: block;
   width: 100%;
   height: 100%;
-  background: var(--lcd);
-  border-radius: 6px;
-  image-rendering: pixelated;
+  background: #f6e7cf;
   touch-action: none;
 }
 
 .overlay {
   position: absolute;
-  inset: 10px;
+  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(240, 166, 92, .95);
-  border-radius: 6px;
+  background: rgba(46, 58, 72, .78);
   padding: 16px;
-  color: var(--lcd-dark);
   text-align: center;
   overflow-y: auto;
 }
 
-.dialog { display: flex; flex-direction: column; gap: 14px; max-width: 300px; }
-.dialog h1 { margin: 0; font-family: var(--font-pixel); font-weight: 400; font-size: 22px; letter-spacing: .02em; line-height: 1.3; }
-.dialog p { margin: 0; font-size: 15px; line-height: 1.45; color: #4a260f; }
-.dialog .big { font-family: var(--font-pixel); font-size: 14px; color: var(--lcd-dark); }
-.dialog .sub { margin-top: -8px; font-family: var(--font-pixel); font-size: 10px; letter-spacing: .04em; }
-
+.dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  max-width: 300px;
+  margin: auto;
+  padding: 22px 18px;
+  color: var(--on-accent);
+  background: var(--paper);
+  border-radius: 18px;
+  box-shadow: 0 6px 0 rgba(0, 0, 0, .25);
+}
+.dialog h1 { margin: 0; font-weight: 800; font-size: 30px; letter-spacing: .01em; line-height: 1.1; }
+.dialog p { margin: 0; font-size: 15px; font-weight: 500; line-height: 1.4; color: #5a4a3c; }
+.dialog .big { font-size: 20px; font-weight: 800; color: var(--on-accent); }
+.dialog .sub { margin-top: -6px; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #a8672c; }
 
 .go {
-  align-self: center;
-  font-family: var(--font-pixel);
-  font-size: 12px;
-  padding: 12px 18px;
-  color: var(--lcd);
-  background: var(--lcd-dark);
+  align-self: stretch;
+  font-family: var(--font);
+  font-size: 17px;
+  font-weight: 800;
+  padding: 13px 18px;
+  color: var(--on-accent);
+  background: var(--accent);
   border: 0;
-  border-radius: 6px;
+  border-radius: 14px;
+  box-shadow: 0 4px 0 #c98f0a;
   cursor: pointer;
 }
+.go:active { transform: translateY(2px); box-shadow: 0 2px 0 #c98f0a; }
 .go.alt {
-  color: var(--lcd-dark);
+  font-size: 15px;
+  font-weight: 700;
+  padding: 10px 18px;
+  color: var(--on-accent);
   background: transparent;
-  box-shadow: inset 0 0 0 2px var(--lcd-dark);
+  box-shadow: inset 0 0 0 2px rgba(43, 36, 51, .3);
 }
-.go:focus-visible, .pad button:focus-visible, .hud .sound:focus-visible {
-  outline: 3px solid var(--accent);
-  outline-offset: 2px;
-}
+.go.alt:active { box-shadow: inset 0 0 0 2px rgba(43, 36, 51, .5); }
+.go:focus-visible { outline: 3px solid var(--on-accent); outline-offset: 2px; }
+.pad button:focus-visible, .hud .sound:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 
 .pad {
   flex: none;
@@ -143,24 +180,27 @@ canvas {
   gap: 10px;
 }
 .pad button {
-  font-family: var(--font-pixel);
-  font-size: 18px;
+  display: grid;
+  place-items: center;
   color: var(--ink);
-  background: var(--case);
+  background: var(--chip);
   border: 0;
-  border-radius: 12px;
-  padding: 18px 0;
-  box-shadow: 0 5px 0 rgba(0, 0, 0, .35);
+  border-radius: 16px;
+  padding: 14px 0;
+  box-shadow: 0 5px 0 rgba(0, 0, 0, .3);
   touch-action: none;
   cursor: pointer;
 }
-.pad button.on { transform: translateY(3px); box-shadow: 0 2px 0 rgba(0, 0, 0, .35); background: #4a5542; }
+.pad button svg { display: block; }
+.pad #btn-jump { color: var(--on-accent); background: var(--accent); box-shadow: 0 5px 0 #c98f0a; }
+.pad button.on { transform: translateY(3px); box-shadow: 0 2px 0 rgba(0, 0, 0, .3); background: var(--chip-on); }
+.pad #btn-jump.on { background: #ffd563; box-shadow: 0 2px 0 #c98f0a; }
 
 @media (prefers-reduced-motion: reduce) {
-  .pad button.on { transform: none; }
+  .pad button.on, .go:active { transform: none; }
 }
 
-/* Низкое окно на компьютере: кнопки не нужны — играют с клавиатуры, место отдаём экрану */
+/* Низкое окно на компьютере: кнопки не нужны — играют с клавиатуры, место отдаём складу */
 @media (hover: hover) and (pointer: fine) and (max-height: 700px) {
   .pad { display: none; }
 }

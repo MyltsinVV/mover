@@ -1,6 +1,7 @@
 import './style.css'
-import {H, JUMP_BUFFER, W} from './config.ts'
+import {H, JUMP_BUFFER, LIVES, W} from './config.ts'
 import {continueWithExtraLife, endGame, getGame, input, onGameOver, onOutOfLives, resetGame, step} from './game.ts'
+import {resetHeroAnim} from './anim.ts'
 import {draw} from './render.ts'
 import {platform} from './platform.ts'
 import {sound, soundInit} from './sound.ts'
@@ -13,11 +14,19 @@ const $ = <T extends HTMLElement = HTMLElement>(id: string) => {
 }
 
 const canvas = $<HTMLCanvasElement>('lcd')
-canvas.width = W
-canvas.height = H
 const ctx = canvas.getContext('2d')
 if (ctx === null) throw new Error('Контекст не найден')
-ctx.imageSmoothingEnabled = false
+
+// Холст рисуется в настоящих пикселях экрана — картинка чёткая при любом размере окна
+const fitCanvas = () => {
+    const ratio = Math.min(3, window.devicePixelRatio || 1)
+    const width = Math.max(W, Math.round(canvas.clientWidth * ratio))
+    const height = Math.round(width * H / W)
+    if (canvas.width === width && canvas.height === height) return
+    canvas.width = width
+    canvas.height = height
+}
+new ResizeObserver(fitCanvas).observe(canvas)
 
 const overlay = $('overlay')
 const dialog = $('dialog')
@@ -30,12 +39,20 @@ let screen: Screen = 'loading'
 let best = 0
 
 // ---------- Табло и диалоги ----------
+let livesHtml = ''
 const renderHud = () => {
     const game = getGame()
     $('score').textContent = String(game.score)
     $('best').textContent = String(Math.max(best, game.score))
     $('lines').textContent = String(game.lines)
-    $('lives').textContent = '♥'.repeat(Math.max(0, game.lives)) || '—'
+    // Потраченные жизни остаются на табло погасшими сердечками
+    const lives = Math.max(0, game.lives)
+    const lost = Math.max(0, LIVES - lives)
+    const html = '<i class="heart on"></i>'.repeat(lives) + '<i class="heart"></i>'.repeat(lost)
+    if (livesHtml !== html) {
+        livesHtml = html
+        $('lives').innerHTML = html
+    }
 }
 
 const showDialog = (html: string, buttonId?: string, onClick?: VoidFunction) => {
@@ -91,6 +108,7 @@ const updateSoundButton = () => {
 const startGame = () => {
     sound.unlock()
     resetGame()
+    resetHeroAnim()
     screen = 'playing'
     hideDialog()
     renderHud()
@@ -320,16 +338,28 @@ const frame = (now: number) => {
         for (let i = 0; i < steps && screen === 'playing'; i++) step(dt / steps)
         renderHud()
     }
-    draw(ctx, getGame())
+    fitCanvas()
+    draw(ctx, getGame(), now / 1000, dt)
     requestAnimationFrame(frame)
 }
 
 // ---------- Запуск ----------
-Promise.allSettled([
-    new FontFace('Press Start 2P', 'url(fonts/PressStart2P-Regular.ttf)').load(),
-    platform.init(),
-]).then(async ([fontResult, platformResult]) => {
-    if (fontResult.status === 'fulfilled') document.fonts.add(fontResult.value)
+// Шрифт лежит двумя файлами: кириллица и латиница; браузер берёт нужный по буквам
+const FONTS = [
+    {file: 'rubik-cyrillic.woff2', range: 'U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116'},
+    {file: 'rubik-latin.woff2', range: 'U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD'},
+]
+
+const loadFonts = async () => {
+    const results = await Promise.allSettled(FONTS.map(({file, range}) =>
+        new FontFace('Rubik', `url(fonts/${file})`, {weight: '300 900', unicodeRange: range}).load()))
+    for (const result of results) {
+        if (result.status === 'fulfilled') document.fonts.add(result.value)
+        else console.error(result.reason)
+    }
+}
+
+Promise.allSettled([loadFonts(), platform.init()]).then(async ([, platformResult]) => {
     if (platformResult.status === 'rejected') console.error(platformResult.reason)
 
     changeTexts(platform.lang)
